@@ -63,11 +63,11 @@ type OrderItem struct {
 
 type InventoryItem struct {
 	gorm.Model
-	Name     string  `json:"name"`
-	SKU      string  `gorm:"uniqueIndex" json:"sku"`
-	Quantity int     `json:"quantity"`
-	Unit     string  `json:"unit"`
-	Reorder  int     `json:"reorder_level"`
+	Name     string `json:"name"`
+	SKU      string `gorm:"uniqueIndex" json:"sku"`
+	Quantity int    `json:"quantity"`
+	Unit     string `json:"unit"`
+	Reorder  int    `json:"reorder_level"`
 }
 
 var db *gorm.DB
@@ -105,21 +105,32 @@ func main() {
 	{
 		api.GET("/hotel/rooms", func(c *gin.Context) {
 			var rooms []Room
-			db.Find(&rooms)
-			c.JSON(200, rooms)
+			if err := db.Find(&rooms).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve rooms"})
+				return
+			}
+			c.JSON(http.StatusOK, rooms)
 		})
 		api.GET("/pos/menu", func(c *gin.Context) {
 			var menu []MenuItem
-			db.Find(&menu)
-			c.JSON(200, menu)
+			if err := db.Find(&menu).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve menu items"})
+				return
+			}
+			c.JSON(http.StatusOK, menu)
 		})
 		api.GET("/erp/inventory", func(c *gin.Context) {
 			var items []InventoryItem
-			db.Find(&items)
-			c.JSON(200, items)
+			if err := db.Find(&items).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve inventory items"})
+				return
+			}
+			c.JSON(http.StatusOK, items)
 		})
 	}
 	port := os.Getenv("PORT")
-	if port == "" { port = "8080" }
+	if port == "" {
+		port = "8080"
+	}
 	r.Run(":" + port)
 }
