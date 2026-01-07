@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin"
 	"github.com/user/erp-pos-hotel/database"
 	"github.com/user/erp-pos-hotel/models"
+	"gorm.io/gorm"
 )
 
 func GetRooms(c *gin.Context) {
@@ -103,6 +103,19 @@ func CreateBooking(c *gin.Context) {
 	}
 	if !booking.CheckOut.After(booking.CheckIn) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Check-out date must be after check-in date."})
+		return
+	}
+
+	// Check for overlapping bookings
+	var existingBooking models.Booking
+	err := database.DB.Where("room_id = ? AND check_in < ? AND check_out > ?", booking.RoomID, booking.CheckOut, booking.CheckIn).First(&existingBooking).Error
+	if err == nil {
+		// If err is nil, a booking was found, so there is an overlap.
+		c.JSON(http.StatusConflict, gin.H{"error": "This room is already booked for the selected dates."})
+		return
+	} else if err != gorm.ErrRecordNotFound {
+		// Handle potential database errors other than "not found"
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error while checking for existing bookings."})
 		return
 	}
 
