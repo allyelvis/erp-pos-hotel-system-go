@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
 echo "📦 Initializing Go modules..."
-go mod init github.com/user/erp-pos-hotel
+go mod init github.com/allyelvis/erp-pos-hotel-go
 go mod tidy
 echo "✅ Dependencies ready."
