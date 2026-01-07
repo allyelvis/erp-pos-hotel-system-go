@@ -1,6 +1,6 @@
-module github.com/user/erp-pos-hotel
+module github.com/allyelvis/erp-pos-hotel-system-go
 
-go 1.25.5
+go 1.22
 
 require (
 	github.com/gin-gonic/gin v1.11.0
