@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookings - Hotel System</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #f4f4f9; }
+        .container { max-width: 1200px; margin: auto; padding: 2em; }
+        h1, h2 { color: #333; }
+        nav { background-color: #333; padding: 1em; margin-bottom: 2em; }
+        nav a { color: white; text-decoration: none; margin-right: 1em; }
+        form { background: white; padding: 2em; border-radius: 8px; margin-bottom: 2em; display: grid; grid-template-columns: 1fr 1fr; gap: 1em; }
+        form div { display: flex; flex-direction: column; }
+        form label { margin-bottom: 0.5em; font-weight: bold; }
+        form input, form select { padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+        form button { background-color: #28a745; color: white; border: none; padding: 0.75em 1em; border-radius: 4px; cursor: pointer; grid-column: span 2; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        th, td { padding: 1em; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f8f8; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <a href="/ui/index.html">Manage Rooms</a>
+            <a href="/ui/bookings.html">Manage Bookings</a>
+        </div>
+    </nav>
+    <div class="container">
+        <h1>Booking Management</h1>
+        
+        <h2>Create a New Booking</h2>
+        <form id="add-booking-form">
+            <div>
+                <label for="guest-name">Guest Name</label>
+                <input type="text" id="guest-name" required>
+            </div>
+            <div>
+                <label for="room-id">Room</label>
+                <select id="room-id" required><option>Loading rooms...</option></select>
+            </div>
+            <div>
+                <label for="check-in">Check-In Date</label>
+                <input type="date" id="check-in" required>
+            </div>
+            <div>
+                <label for="check-out">Check-Out Date</label>
+                <input type="date" id="check-out" required>
+            </div>
+            <button type="submit">Create Booking</button>
+        </form>
+        
+        <h2>Current Bookings</h2>
+        <div id="bookings-table-container">
+            <p>Loading bookings...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+
+        async function populateRoomsDropdown() {
+            const select = document.getElementById('room-id');
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/rooms`);
+                const rooms = await response.json();
+                select.innerHTML = '<option value="">-- Select a Room --</option>';
+                rooms.forEach(room => {
+                    select.innerHTML += `<option value="${room.ID}">Room ${room.number} (${room.type})</option>`;
+                });
+            } catch (error) {
+                select.innerHTML = '<option>Could not load rooms</option>';
+            }
+        }
+
+        async function fetchBookings() {
+            const container = document.getElementById('bookings-table-container');
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/bookings`);
+                const bookings = await response.json();
+                renderBookings(bookings);
+            } catch (error) {
+                container.innerHTML = '<p style="color: red;">Failed to load bookings.</p>';
+            }
+        }
+
+        function renderBookings(bookings) {
+            const container = document.getElementById('bookings-table-container');
+            if (!bookings || bookings.length === 0) {
+                container.innerHTML = '<p>No bookings found.</p>';
+                return;
+            }
+            const table = `
+                <table>
+                    <thead><tr><th>Guest</th><th>Room</th><th>Check-In</th><th>Check-Out</th><th>Total</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${bookings.map(b => `
+                            <tr>
+                                <td>${b.guest_name}</td>
+                                <td>${b.Room ? `Room ${b.Room.number}` : 'N/A'}</td>
+                                <td>${new Date(b.check_in).toLocaleDateString()}</td>
+                                <td>${new Date(b.check_out).toLocaleDateString()}</td>
+                                <td>$${b.total.toFixed(2)}</td>
+                                <td>${b.status}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.innerHTML = table;
+        }
+
+        document.getElementById('add-booking-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const booking = {
+                guest_name: document.getElementById('guest-name').value,
+                room_id: parseInt(document.getElementById('room-id').value),
+                check_in: new Date(document.getElementById('check-in').value).toISOString(),
+                check_out: new Date(document.getElementById('check-out').value).toISOString(),
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/bookings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(booking)
+                });
+                if (!response.ok) throw new Error((await response.json()).error || 'Failed to create booking.');
+                this.reset();
+                fetchBookings();
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateRoomsDropdown();
+            fetchBookings();
+        });
+    </script>
+</body>
+</html>

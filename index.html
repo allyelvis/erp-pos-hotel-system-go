@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP/POS/Hotel System</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f4f4f9; }
+        h1, h2 { color: #333; }
+        .container { max-width: 1200px; margin: auto; }
+        #rooms-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1em; }
+        .room-card { background-color: white; border: 1px solid #ddd; border-radius: 8px; padding: 1em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .room-card h2 { margin-top: 0; color: #0056b3; }
+        .room-card p { margin: 0.5em 0; }
+        .status-available { color: green; font-weight: bold; }
+        .delete-btn { background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; float: right; }
+        form { background: white; padding: 2em; border-radius: 8px; margin-bottom: 2em; display: flex; gap: 1em; align-items: center; }
+        form input { padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+        form button { background-color: #28a745; color: white; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hotel Management</h1>
+        
+        <h2>Add a New Room</h2>
+        <form id="add-room-form">
+            <input type="text" id="room-number" placeholder="Room Number" required>
+            <input type="text" id="room-type" placeholder="Type (e.g., Single)" required>
+            <input type="number" id="room-price" placeholder="Price" step="0.01" required>
+            <button type="submit">Add Room</button>
+        </form>
+        
+        <h2>Current Rooms</h2>
+        <div id="rooms-container">
+            <p>Loading rooms...</p>
+        </div>
+    </div>
+
+    <script>
+        // The backend is running on the same host, so we can use relative paths for the API.
+        const API_BASE_URL = '/api';
+
+        async function fetchRooms() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/rooms`); // Corrected endpoint
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const rooms = await response.json();
+                renderRooms(rooms);
+            } catch (error) {
+                const container = document.getElementById('rooms-container');
+                container.innerHTML = '<p style="color: red;">Failed to load rooms. Is the backend running?</p>';
+                console.error('Error fetching rooms:', error);
+            }
+        }
+
+        function renderRooms(rooms) {
+            const container = document.getElementById('rooms-container');
+            container.innerHTML = ''; // Clear current rooms
+            if (!rooms || rooms.length === 0) {
+                container.innerHTML = '<p>No rooms found.</p>';
+                return;
+            }
+            rooms.forEach(room => {
+                const card = document.createElement('div');
+                card.className = 'room-card';
+                card.innerHTML = `
+                    <button class="delete-btn" onclick="deleteRoom(${room.ID})">X</button>
+                    <h2>Room ${room.number}</h2>
+                    <p>Type: ${room.type}</p>
+                    <p>Price: $${room.price.toFixed(2)}</p>
+                    <p>Status: <span class="status-available">${room.status || 'Available'}</span></p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function deleteRoom(roomId) {
+            if (!confirm('Are you sure you want to delete this room?')) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/rooms/${roomId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete room.');
+                fetchRooms(); // Refresh the list
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        document.getElementById('add-room-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const room = {
+                number: document.getElementById('room-number').value,
+                type: document.getElementById('room-type').value,
+                price: parseFloat(document.getElementById('room-price').value),
+                status: "Available" // Default status
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/hotel/rooms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(room)
+                });
+                if (!response.ok) throw new Error('Failed to create room.');
+                this.reset(); // Clear the form
+                fetchRooms(); // Refresh the list
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        // Fetch rooms when the page loads
+        document.addEventListener('DOMContentLoaded', fetchRooms);
+    </script>
+
+</body>
+</html>
