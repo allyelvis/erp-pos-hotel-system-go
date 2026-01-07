@@ -1,10 +1,11 @@
 package database
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 
-	"github.com/user/erp-pos-hotel/models"
+	"github.com/allyelvis/erp-pos-hotel-system-go/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -12,33 +13,47 @@ import (
 
 var DB *gorm.DB
 
+// Init initializes the database connection.
+// It attempts to connect to a PostgreSQL database using environment variables
+// suitable for a Google Cloud SQL environment. If the required environment
+// variables are not set, it falls back to an in-memory SQLite database
+// for local development.
 func Init() {
 	var err error
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn != "" {
+
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	instanceConnectionName := os.Getenv("INSTANCE_CONNECTION_NAME")
+
+	// If environment variables are set, connect to PostgreSQL (for Cloud Run)
+	if dbUser != "" && dbPassword != "" && dbName != "" && instanceConnectionName != "" {
+		slog.Info("Connecting to PostgreSQL database...")
+		// DSN format for Cloud SQL with Unix socket
+		dsn := fmt.Sprintf("user=%s password=%s dbname=%s host=/cloudsql/%s",
+			dbUser,
+			dbPassword,
+			dbName,
+			instanceConnectionName,
+		)
 		DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err != nil {
+			slog.Error("failed to connect to postgres database", "error", err)
+			panic("failed to connect database")
+		}
 	} else {
-		DB, err = gorm.Open(sqlite.Open("erp_pos_hotel.db"), &gorm.Config{})
-	}
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
-	}
-
-	// AutoMigrate all models
-	err = DB.AutoMigrate(&models.User{}, &models.Room{}, &models.Booking{}, &models.MenuItem{}, &models.Order{}, &models.OrderItem{}, &models.InventoryItem{})
-	if err != nil {
-		log.Fatal("Failed to migrate database:", err)
+		// Fallback to SQLite for local development
+		slog.Info("PostgreSQL environment variables not set, falling back to local SQLite database.")
+		DB, err = gorm.Open(sqlite.Open("local.db"), &gorm.Config{})
+		if err != nil {
+			slog.Error("failed to connect to sqlite database", "error", err)
+			panic("failed to connect database")
+		}
 	}
 
-	seedData()
-}
+	slog.Info("Database connection established.")
 
-func seedData() {
-	var count int64
-	DB.Model(&models.Room{}).Count(&count)
-	if count == 0 {
-		DB.Create(&models.Room{Number: "101", Type: "Single", Price: 100.0, Status: "Available"})
-		DB.Create(&models.MenuItem{Name: "Burger", Category: "Main", Price: 12.50})
-		DB.Create(&models.InventoryItem{Name: "Beef Patty", SKU: "BEEF-001", Quantity: 100, Unit: "units", Reorder: 20})
-	}
+	// Auto-migrate the schema
+	DB.AutoMigrate(&models.Room{}, &models.Booking{})
+	slog.Info("Database migrated.")
 }
